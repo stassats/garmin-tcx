@@ -118,7 +118,7 @@
 (defun parse-laps (xml)
   (let ((laps (find-children "Lap" xml)))
     (loop for lap in laps
-          collect (parse-lap lap))))
+          collect (remove-nil-plist (parse-lap lap)))))
 
 (defun besides-zero (value)
   (unless (zerop value)
@@ -152,16 +152,25 @@
 
 (defun round-non-nil (x)
   (and x (round x)))
+
+(defun remove-nil-plist (plist)
+  (loop for (key value) on plist by #'cddr
+        when value
+        collect key
+        and
+        collect value))
+
 (defun combine-laps (laps)
-  (list :start-time (getf (car laps) :start-time)
-        :time (sum-data laps :time)
-        :distance (sum-data laps :distance)
-        :avg-speed (average-data laps :avg-speed)
-        :max-speed (maximize-data laps :max-speed)
-        :avg-hr (round-non-nil (average-data laps :avg-hr))
-        :max-hr (maximize-data laps :max-hr)
-        :avg-cadence (round-non-nil (round (average-data laps :avg-cadence)))
-        :max-cadence (maximize-data laps :max-cadence)))
+  (remove-nil-plist
+   (list :start-time (getf (car laps) :start-time)
+         :time (sum-data laps :time)
+         :distance (sum-data laps :distance)
+         :avg-speed (average-data laps :avg-speed)
+         :max-speed (maximize-data laps :max-speed)
+         :avg-hr (round-non-nil (average-data laps :avg-hr))
+         :max-hr (maximize-data laps :max-hr)
+         :avg-cadence (round-non-nil (round (average-data laps :avg-cadence)))
+         :max-cadence (maximize-data laps :max-cadence))))
 
 (defun get-data (xml)
   (let ((laps (parse-laps xml)))
