@@ -136,7 +136,6 @@
          maximize (or (getf lap indicator)
                       0))))
 
-
 (defun average-data (laps indicator)
   (loop for lap in laps
         for weight = (getf lap :time)
@@ -186,3 +185,6 @@
                                       "Activities"))))
     (loop for activity in activities
           collect (get-data activity))))
+
+(defun parse-file (file)
+  (parse (load-tcx file)))

@@ -2,4 +2,5 @@
 
 (defpackage #:garmin-tcx
   (:use #:cl)
-  (:export ))
+  (:export
+   :parse-file))
