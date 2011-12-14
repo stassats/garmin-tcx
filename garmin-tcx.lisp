@@ -104,6 +104,35 @@
   (integer-value
    (find-child-path xml "MaximumHeartRateBpm" "Value")))
 
+(defun get-speed (xml)
+  (parse-float
+   (stp:string-value
+    (find-child-path xml "Extensions"
+                     "TPX" "Speed"))))
+
+(defun trackpoint-time (xml)
+  (let ((value (find-child-value "Time" xml)))
+    (when value
+      (local-time:parse-timestring value))))
+
+(defvar *moving-speed-threshold* 1
+  "In m/s")
+
+(defun get-moving-time (xml)
+  (let (previous-time
+        (total-time 0))
+    (stp:do-children (trackpoint (find-child "Track" xml))
+      (when (equal (local-name trackpoint) "Trackpoint")
+        (let ((time (trackpoint-time trackpoint))
+              (speed (get-speed trackpoint)))
+          (when (and previous-time
+                     speed
+                     (> speed *moving-speed-threshold*))
+            (incf total-time
+                  (local-time:timestamp-difference time previous-time)))
+          (setf previous-time time))))
+    total-time))
+
 (defun parse-lap (xml)
   (list :start-time (get-start-time xml)
         :time (get-time xml)
@@ -113,7 +142,8 @@
         :avg-hr (get-avg-hr xml)
         :max-hr (get-max-hr xml)
         :avg-cadence (get-avg-cadence xml)
-        :max-cadence (get-max-cadence xml)))
+        :max-cadence (get-max-cadence xml)
+        :moving-time (get-moving-time xml)))
 
 (defun parse-laps (xml)
   (let ((laps (find-children "Lap" xml)))
@@ -169,12 +199,13 @@
          :avg-hr (round-non-nil (average-data laps :avg-hr))
          :max-hr (maximize-data laps :max-hr)
          :avg-cadence (round-non-nil (round (average-data laps :avg-cadence)))
-         :max-cadence (maximize-data laps :max-cadence))))
+         :max-cadence (maximize-data laps :max-cadence)
+         :moving-time (sum-data laps :moving-time))))
 
 (defun get-data (xml)
   (let ((laps (parse-laps xml)))
    `(:type ,(get-sport-type xml)
-     :combined ,@(combine-laps laps)
+     ,@(combine-laps laps)
      :laps ,laps)))
 
 (defun parse (xml)
