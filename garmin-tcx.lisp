@@ -5,8 +5,10 @@
 
 (in-package #:garmin-tcx)
 
-(defun load-tcx (pathname)
-  (cxml:parse (pathname pathname)
+(defun load-tcx (file-or-url)
+  (cxml:parse (if (eql 0 (search "http" file-or-url))
+                  (drakma:http-request file-or-url)
+                  (pathname file-or-url))
               (stp:make-builder)))
 
 (defun elementp (x)
@@ -43,9 +45,17 @@
   '(("Running" . :run)
     ("Biking" .  :bike-ride)))
 
+(defun indoor-cycling-p (xml)
+  (not (stp:find-recursively "Position" xml
+                             :key #'local-name :test #'equal)))
+
 (defun get-sport-type (xml)
-  (cdr (assoc (stp:attribute-value xml "Sport") *sport-types*
-              :test #'equal)))
+  (let ((type (cdr (assoc (stp:attribute-value xml "Sport") *sport-types*
+                          :test #'equal))))
+    (if (and (eql type :bike-ride)
+             (indoor-cycling-p xml))
+        :indoor-bike-ride
+        type)))
 
 (defun parse-float (string)
   (let (*read-eval*
@@ -105,10 +115,11 @@
    (find-child-path xml "MaximumHeartRateBpm" "Value")))
 
 (defun get-speed (xml)
-  (parse-float
-   (stp:string-value
-    (find-child-path xml "Extensions"
-                     "TPX" "Speed"))))
+  (let ((child (find-child-path xml "Extensions"
+                                "TPX" "Speed")))
+    (when child
+      (parse-float
+       (stp:string-value child)))))
 
 (defun trackpoint-time (xml)
   (let ((value (find-child-value "Time" xml)))
@@ -198,7 +209,7 @@
          :max-speed (maximize-data laps :max-speed)
          :avg-hr (round-non-nil (average-data laps :avg-hr))
          :max-hr (maximize-data laps :max-hr)
-         :avg-cadence (round-non-nil (round (average-data laps :avg-cadence)))
+         :avg-cadence (round-non-nil (average-data laps :avg-cadence))
          :max-cadence (maximize-data laps :max-cadence)
          :moving-time (sum-data laps :moving-time))))
 
@@ -217,5 +228,5 @@
     (loop for activity in activities
           collect (get-data activity))))
 
-(defun parse-file (file)
-  (parse (load-tcx file)))
+(defun parse-file (file-or-url)
+  (parse (load-tcx file-or-url)))
