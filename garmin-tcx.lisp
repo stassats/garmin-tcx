@@ -144,6 +144,12 @@
           (setf previous-time time))))
     total-time))
 
+(defun get-elapsed-time (xml)
+  (let ((children (find-children "Trackpoint" (find-child "Track" xml))))
+    (when children
+      (local-time:timestamp-difference (trackpoint-time (car (last children)))
+                                       (trackpoint-time (car children))))))
+
 (defun parse-lap (xml)
   (list :start-time (get-start-time xml)
         :time (get-time xml)
@@ -154,7 +160,8 @@
         :max-hr (get-max-hr xml)
         :avg-cadence (get-avg-cadence xml)
         :max-cadence (get-max-cadence xml)
-        :moving-time (get-moving-time xml)))
+        :moving-time (get-moving-time xml)
+        :elapsed-time (get-elapsed-time xml)))
 
 (defun parse-laps (xml)
   (let ((laps (find-children "Lap" xml)))
@@ -204,6 +211,7 @@
   (remove-nil-plist
    (list :start-time (getf (car laps) :start-time)
          :time (sum-data laps :time)
+         :elapsed-time (sum-data laps :elapsed-time)
          :distance (sum-data laps :distance)
          :avg-speed (average-data laps :avg-speed)
          :max-speed (maximize-data laps :max-speed)
